@@ -2,7 +2,9 @@
 #include "field.h"
 
 
-Field::Field(int _sizeX, int _sizeY) {
+Field::Field(int _sizeX, int _sizeY) 
+	: gameStarted(false)
+{
 	if (_sizeX < 0 || _sizeX > 25 || _sizeY < 0 || _sizeY > 25) {
 		sizeX = 10;
 		sizeY = 10;
@@ -48,7 +50,7 @@ Cell ** Field::getField() {
 	return area;
 }
 
-Field & Field::operator=(Field && other) {
+Field & Field::operator=(Field & other) {
 
 
 	if (!area) {
@@ -60,6 +62,7 @@ Field & Field::operator=(Field && other) {
 	}
 	sizeX = other.getSizeX();
 	sizeY = other.getSizeY();
+	gameStarted = false;
 
 	area = new Cell*[sizeX];
 	for (int i = 0; i < sizeX; i++) {
@@ -73,7 +76,7 @@ Field & Field::operator=(Field && other) {
 	}
 
 	bombsCount = other.getBombsCount();
-
+	explode = false;
 	return *this;
 }
 
@@ -192,78 +195,62 @@ int Field::checkSiblings(int _coordX, int _coordY) {
 	return counter;
 }
 
-void Field::openCell(HWND & hWnd) {
-	for (int i = 0; i < sizeX; i++) {
-		for (int j = 0; j < sizeY; j++) {
-			if (area[i][j].getButton() == hWnd) {
+void Field::openCell(int i, int j) {
+	if (area[i][j].IsOpened()) {	// если €чейка открыта, выйти с функии
+		return;
+	}
 
-				if (area[i][j].IsOpened()) {
-					return;
-				}
+	area[i][j].open();
 
-				if (area[i][j].isBomb()) {
-					area[i][j].open();
-					SendMessage(hWnd, BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)images[10]);
-					UpdateWindow(hWnd);
-					explode = true;
-					return;
-				}
+	if (area[i][j].isBomb()) {
+		explode = true;
+		return;
+	}
 
-				int outPut = checkSiblings(i, j);
-				if (!outPut) {
-					SendMessage(hWnd, BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)images[0]);
-					EnableWindow(hWnd, 0);
-					area[i][j].open();
-					if ((i - 1) >= 0 && (j - 1) >= 0 && !area[i - 1][j - 1].isBomb())
-						openCell(area[i - 1][j - 1].getButton());
+	int outPut = checkSiblings(i, j);										// проверка, есть ли вокруг €чейки бомбы
+	if (!outPut) {															// если нету, рекурсивно вызываем функцию дл€ соседей пустой €чейки
+		if ((i - 1) >= 0 && (j - 1) >= 0 && !area[i - 1][j - 1].isBomb())
+			openCell(i - 1, j - 1);
 
-					if ((i - 1) >= 0 && !area[i - 1][j].isBomb())
-						openCell(area[i - 1][j].getButton());
+		if ((i - 1) >= 0 && !area[i - 1][j].isBomb())
+			openCell(i - 1, j);
 
-					if ((i - 1) >= 0 && (j + 1) >= 0 && !area[i - 1][j + 1].isBomb())
-						openCell(area[i - 1][j + 1].getButton());
+		if ((i - 1) >= 0 && (j + 1) >= 0 && !area[i - 1][j + 1].isBomb())
+			openCell(i - 1, j + 1);
 
-					if ((j - 1) >= 0 && !area[i][j - 1].isBomb())
-						openCell(area[i][j - 1].getButton());
+		if ((j - 1) >= 0 && !area[i][j - 1].isBomb())
+			openCell(i, j - 1);
 
-					if ((j + 1) >= 0 && !area[i][j + 1].isBomb())
-						openCell(area[i][j + 1].getButton());
+		if ((j + 1) >= 0 && !area[i][j + 1].isBomb())
+			openCell(i, j + 1);
 
-					if ((i + 1) < sizeX && (j - 1) >= 0 && !area[i + 1][j - 1].isBomb())
-						openCell(area[i + 1][j - 1].getButton());
+		if ((i + 1) < sizeX && (j - 1) >= 0 && !area[i + 1][j - 1].isBomb())
+			openCell(i + 1, j - 1);
 
-					if ((i + 1) < sizeX && !area[i + 1][j].isBomb())
-						openCell(area[i + 1][j].getButton());
+		if ((i + 1) < sizeX && !area[i + 1][j].isBomb())
+			openCell(i + 1, j);
 
-					if ((i + 1) < sizeX && (j + 1) < sizeY && !area[i + 1][j + 1].isBomb())
-						openCell(area[i + 1][j + 1].getButton());
-				}
-				else {
-					SendMessage(hWnd, BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)images[outPut]);
-					EnableWindow(area[i][j].getButton(), 0);
-					area[i][j].open();
-				}
-				UpdateWindow(hWnd);
-				break;
-			}
-		}
+		if ((i + 1) < sizeX && (j + 1) < sizeY && !area[i + 1][j + 1].isBomb())
+			openCell(i + 1, j + 1);
 	}
 }
 
-void Field::markButton(HWND & hwnd) {
+void Field::markCell(int x, int y) {
 	for (int i = 0; i < sizeX; i++) {
 		for (int j = 0; j < sizeY; j++) {
-			if (area[i][j].getButton() == hwnd) {
+			if (x > area[i][j].getCoordX() && x < area[i][j].getCoordRight() &&
+				y < area[i][j].getCoordY() && y < area[i][j].getCoordBottom()) {
 				area[i][j].setMarked();
 			}
 		}
 	}
 }
 
-void Field::unmarkButton(HWND & hwnd) {
+void Field::unmarkCell(int x, int y) {
 	for (int i = 0; i < sizeX; i++) {
 		for (int j = 0; j < sizeY; j++) {
-			if (area[i][j].getButton() == hwnd) {
+			if (x > area[i][j].getCoordX() && x < area[i][j].getCoordRight() &&
+				y < area[i][j].getCoordY() && y < area[i][j].getCoordBottom()) {
 				area[i][j].setUnmarked();
 			}
 		}
@@ -271,7 +258,7 @@ void Field::unmarkButton(HWND & hwnd) {
 }
 
 bool Field::checkGameOver() {
-	int markedButtonsCount = 0;
+	int markedCellsCount = 0;
 
 	for (int i = 0; i < sizeX; i++) {
 		for (int j = 0; j < sizeY; j++) {
@@ -280,32 +267,10 @@ bool Field::checkGameOver() {
 			}
 
 			if (area[i][j].isMarked()) {
-				markedButtonsCount++;
+				markedCellsCount++;
 			}
 		}
 	}
 
-	return (markedButtonsCount == bombsCount) ? true : false;
-}
-
-void Field::blockField() {
-	for (int i = 0; i < sizeX; i++) {
-		for (int j = 0; j < sizeY; j++) {
-			EnableWindow(area[i][j].getButton(), 0);
-		}
-	}
-}
-
-void Field::initImages(HINSTANCE & hInst) {
-	images[0] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP1), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
-	images[1] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP2), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
-	images[2] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP5), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
-	images[3] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP6), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
-	images[4] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP7), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
-	images[5] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP8), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
-	images[6] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP9), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
-	images[7] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP10), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
-	images[8] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP11), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
-	images[9] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP12), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
-	images[10] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP13), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
+	return (markedCellsCount == bombsCount) ? true : false;
 }

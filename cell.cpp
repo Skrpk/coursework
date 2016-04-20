@@ -1,17 +1,9 @@
 #include "cell.h"
 
-void Cell::initializeButton(HWND & _hwnd, int i, int j, HINSTANCE & hInst, int _buttonCode)
+void Cell::initializeCell(int _nLeftRect, int _nTopRect, int _nRightRect, int _nBottomRect)
 {
-	if (_isBomb) {
-		button = CreateWindow("button", "", WS_CHILD | WS_VISIBLE | BS_BITMAP, j, i, 25, 25, _hwnd, (HMENU)_buttonCode, hInst, NULL);
-	}
-	else {
-		button = CreateWindow("button", "", WS_CHILD | WS_VISIBLE | BS_BITMAP, j, i, 25, 25, _hwnd, (HMENU)_buttonCode, hInst, NULL);
-	}
-
-	coordX = i; 
-	coordY = j;
-
-	buttonCode = _buttonCode;
+	nLeftRect = _nLeftRect;
+	nTopRect = _nTopRect;
+	nRightRect = _nRightRect;
+	nBottomRect = _nBottomRect;
 }
-

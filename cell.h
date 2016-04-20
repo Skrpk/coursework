@@ -1,14 +1,14 @@
 #ifndef _CELL_
 #define _CELL_
 #include <windows.h>  
+#include "resource.h"
 class Cell {
 private:
 	bool _isBomb = false;
 	bool isOpened = false;
 	bool _isMarked = false;
-	int coordX, coordY;
-	HWND button;
-	int buttonCode;
+
+	int nLeftRect, nTopRect, nRightRect, nBottomRect;
 
 public:
 	bool isBomb() {
@@ -17,14 +17,6 @@ public:
 
 	void setBomb() {
 		_isBomb = true;
-	}
-
-	void setButton(HWND && but) {
-		button = but;
-	}
-
-	int setButtonCode() {
-		return buttonCode;
 	}
 
 	void setMarked() {
@@ -39,20 +31,21 @@ public:
 		return _isMarked;
 	}
 
-	int getButtonCode() {
-		return buttonCode;
-	}
-
+	// геттеры координат €чейки
 	int getCoordX() {
-		return coordX;
+		return nLeftRect;
 	}
 
 	int getCoordY() {
-		return coordY;
+		return nTopRect;
 	}
 
-	HWND & getButton() {
-		return button;
+	int getCoordRight() {
+		return nRightRect;
+	}
+
+	int getCoordBottom() {
+		return nBottomRect;
 	}
 
 	void open() {
@@ -63,8 +56,11 @@ public:
 		return isOpened;
 	}
 
-	void initializeButton(HWND & _hwnd, int i, int j, HINSTANCE & hInst, int _buttonCode);
+	void close() {
+		isOpened = false;
+	}
 
+	void initializeCell(int _nLeftRect, int _nTopRect, int _nRightRect, int _nBottomRect);  // задает координаты €чейки
 };
 
 #endif // _CELL_

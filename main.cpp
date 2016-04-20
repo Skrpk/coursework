@@ -1,6 +1,7 @@
-//#include <windows.h>         // подключение библиотеки с функциями API
 #include "cell.h"
 #include "field.h"
+#include <fstream>
+#include <vector>
 
 // Глобальные переменные:
 HINSTANCE hInst;
@@ -8,16 +9,62 @@ Field myField;
 // Указатель приложения
 LPCTSTR szWindowClass = "QWERTY";
 LPCTSTR szTitle = "САПЕР";
-bool isOver = false;
+bool isOver = false, win = false;
 ATOM MyRegisterClass(HINSTANCE hInstance);
 BOOL InitInstance(HINSTANCE, int);
-WNDPROC mainProc;
-HWND mainWindow;
 HMENU menu;
-HANDLE but;
+HANDLE images[11], but, flag;	// хэндлы для изображений
 
+struct Time {
+	int hours = 0;
+	int minutes = 0;
+	int seconds = 0;
+};
+
+Time myTime;
+bool choseLevel = false;  // флаг для окна выбора уровная
+
+void initImages() {
+	flag = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP4), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
+	but = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP3), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
+	images[0] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP1), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
+	images[1] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP2), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
+	images[2] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP5), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
+	images[3] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP6), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
+	images[4] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP7), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
+	images[5] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP8), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
+	images[6] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP9), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
+	images[7] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP10), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
+	images[8] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP11), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
+	images[9] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP12), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
+	images[10] = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP13), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
+}	 // инициализация битмапов
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+
+void DrawBitmap(HDC hdc, HBITMAP hBitmap, int xStart, int yStart)
+{
+	BITMAP bm;
+	HDC hdcMem;
+	DWORD dwSize;
+	POINT ptSize, ptOrg;
+	hdcMem = CreateCompatibleDC(hdc);
+	SelectObject(hdcMem, hBitmap);
+	SetMapMode(hdcMem, GetMapMode(hdc));
+	GetObject(hBitmap, sizeof(BITMAP), (LPVOID)&bm);
+	ptSize.x = bm.bmWidth;
+	ptSize.y = bm.bmHeight;
+	DPtoLP(hdc, &ptSize, 1);
+	ptOrg.x = 0;
+	ptOrg.y = 0;
+	DPtoLP(hdcMem, &ptOrg, 1);
+	BitBlt(
+		hdc, xStart, yStart, ptSize.x, ptSize.y,
+		hdcMem, ptOrg.x, ptOrg.y, SRCCOPY
+		);
+	DeleteDC(hdcMem);
+}	 // функция, рисующая изображение
+
 
 int APIENTRY WinMain(HINSTANCE hInstance,
 	HINSTANCE hPrevInstance,
@@ -41,7 +88,6 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 	}
 	return msg.wParam;
 }
-//  FUNCTION: MyRegisterClass()
 
 ATOM MyRegisterClass(HINSTANCE hInstance)
 {
@@ -83,71 +129,27 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 		return FALSE;
 	}
 
-	mainWindow = hWnd;
 	ShowWindow(hWnd, nCmdShow);
 	UpdateWindow(hWnd);
 	return TRUE;
 
 }
 
-
-LRESULT CALLBACK cellProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {    // оконная процедура для кнопки
-	TCHAR looseText[50] = "Вы проиграли!";
-	static HDC hdc;
-	but = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP3), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
-	HANDLE flag = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP4), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
-	switch (message) {
-	case WM_LBUTTONDOWN:
-		myField.openCell(hWnd);
-		if (myField.getExplodeInfo()) {
-			hdc = GetDC(mainWindow);
-			TextOut(hdc, 450, 50, looseText, lstrlen(looseText));
-			ReleaseDC(mainWindow, hdc);
-			myField.blockField();
-		}
-	case WM_RBUTTONDOWN:
-		for (int i = 0; i < myField.getSizeX(); i++) {
-			for (int j = 0; j < myField.getSizeY(); j++) {
-				if (myField.getField()[i][j].getButton() == hWnd) {
-					if (!myField.getField()[i][j].IsOpened()) {
-						if (!myField.getField()[i][j].isMarked()) {
-							SendMessage(hWnd, BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)flag);
-							myField.markButton(hWnd);
-							UpdateWindow(hWnd);
-						}
-						else {
-							SendMessage(hWnd, BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)but);
-							myField.unmarkButton(hWnd);
-							UpdateWindow(hWnd);
-						}
-					}
-
-					if (myField.checkGameOver()) {
-						isOver = true;
-						myField.blockField();
-						SendMessage(mainWindow, WM_PAINT, 0, 0);
-					}
-					break;
-				}
-			}
-		}
-		break;
-	default:
-		return CallWindowProc(mainProc, hWnd, message, wParam, lParam);
-	}
-}
-
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM
 	wParam, LPARAM lParam)
 {
 	PAINTSTRUCT ps;
-	static HDC hdc;
+	HDC hdc, hMemDC;
 	RECT rt;
+	HANDLE hMemBM;
 	static HINSTANCE inst;
 	menu = GetMenu(hWnd);
-	but = LoadImage(hInst, MAKEINTRESOURCE(IDB_BITMAP3), IMAGE_BITMAP, 25, 25, LR_DEFAULTCOLOR);
+	int x, y, outPut;
 	TCHAR textBuffer[256] = "Вы победили!";
 	TCHAR looseText[50] = "Вы проиграли!";
+	TCHAR choose[] = "Выбери уровень сложности";
+	TCHAR timeBuffer[10];
+	int ButSize = myField.getCellSize();
 	static HWND buttonPlay, buttonExit, easyLevel, middleLevel, hardLevel;
 	switch (message)
 	{
@@ -158,14 +160,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM
 
 		buttonPlay = CreateWindow("button", "Играть!", WS_CHILD | WS_VISIBLE, 420, 250, 150, 25, hWnd, (HMENU)100, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
 		buttonExit = CreateWindow("button", "Выход", WS_CHILD | WS_VISIBLE, 420, 300, 150, 25, hWnd, (HMENU)101, ((LPCREATESTRUCT)lParam)->hInstance, NULL);
-		inst = ((LPCREATESTRUCT)lParam)->hInstance;
-		EnableMenuItem(menu, ID_40001, MF_DISABLED);
+		EnableMenuItem(menu, ID_40001, MF_DISABLED);		// отключить пункты меню для первого окна
 		EnableMenuItem(menu, ID_40002, MF_DISABLED);
+		initImages();
 		break;
 
 	case WM_GETMINMAXINFO:
 	{
-		LPMINMAXINFO lpMMI = (LPMINMAXINFO)lParam;
+		LPMINMAXINFO lpMMI = (LPMINMAXINFO)lParam;	// запретить изменение размеров окна
 		lpMMI->ptMinTrackSize.x = 1000;
 		lpMMI->ptMinTrackSize.y = 700;
 
@@ -174,17 +176,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM
 	}
 	break;
 	case WM_COMMAND:
-		if (LOWORD(wParam) == 101 || LOWORD(wParam) == ID_40003)
-			SendMessage(hWnd, WM_CLOSE, 0, 0);
+		if (LOWORD(wParam) == 101 || LOWORD(wParam) == ID_40003)	// закрыть приложение если нажата кнопка выхода 
+			SendMessage(hWnd, WM_CLOSE, 0, 0);						// или выбран соответствующий пункт меню
 
-		if (LOWORD(wParam) == ID_40002) {
-			if (myField.getSizeX() > 0) {
-				for (int i = 0; i < myField.getSizeX(); i++) {
-					for (int j = 0; j < myField.getSizeY(); j++) {
-						ShowWindow(myField.getField()[i][j].getButton(), SW_HIDE);
-					}
-				}
-			}
+		if (LOWORD(wParam) == ID_40002) {							// вернуться к главному меню
+			myField.stopGame();
+			InvalidateRect(hWnd, 0, FALSE);
+			EnableMenuItem(menu, ID_40001, MF_DISABLED);
 			ShowWindow(buttonPlay, SW_SHOWNORMAL);
 			ShowWindow(buttonExit, SW_SHOWNORMAL);
 			ShowWindow(easyLevel, SW_HIDE);
@@ -194,33 +192,48 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM
 			UpdateWindow(buttonExit);
 		}
 
-		if (LOWORD(wParam) == ID_40001) {
-			for (int i = 0; i < myField.getSizeX(); i++) {
-				for (int j = 0; j < myField.getSizeY(); j++) {
-					ShowWindow(myField.getField()[i][j].getButton(), SW_HIDE);
+		if (LOWORD(wParam) == ID_40001) {							// начать заново
+			myTime.hours = 0;
+			myTime.minutes = 0;
+			myTime.seconds = 0;
+			KillTimer(hWnd, 200);
+			SetTimer(hWnd, 200, 1000, NULL);
+			isOver = false;
+			Field newField(myField.getSizeX(), myField.getSizeY());
+
+			if (newField.getSizeX() == 10) {
+				for (int i = 0; i < newField.getSizeX(); i++) {
+					for (int j = 0; j < newField.getSizeY(); j++) {
+						newField.getField()[i][j].initializeCell(370 + i * ButSize, 170 + j * ButSize,
+							370 + i * ButSize + ButSize, 170 + j * ButSize + ButSize);
+					}
 				}
 			}
-			myField = Field(myField.getSizeX(), myField.getSizeY());
-			myField.initImages(hInst);
-			for (int i = 0; i < myField.getSizeX(); i++) {
-				for (int j = 0; j < myField.getSizeY(); j++) {
-					if (myField.getSizeX() == 10) {
-						myField.getField()[i][j].initializeButton(hWnd, 170 + i * 25, 370 + j * 25, inst, myField.getButtonCode());
+
+			if (newField.getSizeX() == 15) {
+				for (int i = 0; i < newField.getSizeX(); i++) {
+					for (int j = 0; j < newField.getSizeY(); j++) {
+						newField.getField()[i][j].initializeCell(320 + i * ButSize, 130 + j * ButSize,
+							320 + i * ButSize + ButSize, 130 + j * ButSize + ButSize);
 					}
-					else if (myField.getSizeX() == 15) {
-						myField.getField()[i][j].initializeButton(hWnd, 130 + i * 25, 310 + j * 25, inst, myField.getButtonCode());
-					}
-					else if (myField.getSizeX() == 20) {
-						myField.getField()[i][j].initializeButton(hWnd, 100 + i * 25, 230 + j * 25, inst, myField.getButtonCode());
-					}
-					mainProc = (WNDPROC)SetWindowLong(myField.getField()[i][j].getButton(), GWL_WNDPROC, (LONG)cellProc);
-					SendMessage(myField.getField()[i][j].getButton(), BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)but);
-					UpdateWindow(myField.getField()[i][j].getButton());
 				}
 			}
+
+			if (newField.getSizeX() == 20) {
+				for (int i = 0; i < newField.getSizeX(); i++) {
+					for (int j = 0; j < newField.getSizeY(); j++) {
+						newField.getField()[i][j].initializeCell(250 + i * ButSize, 80 + j * ButSize,
+							250 + i * ButSize + ButSize, 80 + j * ButSize + ButSize);
+					}
+				}
+			}
+
+			myField = newField;
+			myField.startGame();
+			InvalidateRect(hWnd, 0, FALSE);
 		}
 
-		if (LOWORD(wParam) == 100) {
+		if (LOWORD(wParam) == 100) {								// если нажата клавиша "Играть!"
 			ShowWindow(buttonPlay, SW_HIDE);
 			ShowWindow(buttonExit, SW_HIDE);
 			ShowWindow(easyLevel, SW_SHOWNORMAL);
@@ -229,11 +242,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM
 			UpdateWindow(easyLevel);
 			UpdateWindow(middleLevel);
 			UpdateWindow(hardLevel);
-			EnableMenuItem(menu, ID_40002, MF_ENABLED);
-			hdc = GetDC(hWnd);
-			TCHAR text[] = "Выбери уровень сложности";
-			TextOut(hdc, 400, 200, text, ARRAYSIZE(text));
-			ReleaseDC(hWnd, hdc);
+			EnableMenuItem(menu, ID_40002, MF_ENABLED);				// включить пункт меню "Главное меню"
+			choseLevel = true;
+			InvalidateRect(hWnd, 0, FALSE);
 		}
 
 		if (LOWORD(wParam) == 1) {
@@ -242,16 +253,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM
 			ShowWindow(middleLevel, SW_HIDE);
 			ShowWindow(hardLevel, SW_HIDE);
 
-			myField = Field(10, 10);
+			SetTimer(hWnd, 200, 1000, NULL);
+
+			isOver = false;											// если выбран легкий уровень сложности
+
+			myField = Field(10, 10);								// создать поле размером 10х10
 
 			for (int i = 0; i < myField.getSizeX(); i++) {
 				for (int j = 0; j < myField.getSizeY(); j++) {
-					myField.getField()[i][j].initializeButton(hWnd, 170 + i * 25, 370 + j * 25, inst, myField.getButtonCode());
-					mainProc = (WNDPROC)SetWindowLong(myField.getField()[i][j].getButton(), GWL_WNDPROC, (LONG)cellProc);
-					SendMessage(myField.getField()[i][j].getButton(), BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)but);
-  					UpdateWindow(myField.getField()[i][j].getButton());
+					myField.getField()[i][j].initializeCell(370 + i * ButSize, 170 + j * ButSize,
+						370 + i * ButSize + ButSize, 170 + j * ButSize + ButSize);
 				}
 			}
+			myField.startGame();
+			InvalidateRect(hWnd, 0, FALSE);
 		}
 
 		if (LOWORD(wParam) == 2) {
@@ -260,16 +275,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM
 			ShowWindow(middleLevel, SW_HIDE);
 			ShowWindow(hardLevel, SW_HIDE);
 
-			myField = Field(15, 15);
+			SetTimer(hWnd, 200, 1000, NULL);
+
+			isOver = false;											// если выбран средний уровень сложности
+
+			myField = Field(15, 15);								// создать поле размером 15х15
 
 			for (int i = 0; i < myField.getSizeX(); i++) {
 				for (int j = 0; j < myField.getSizeY(); j++) {
-					myField.getField()[i][j].initializeButton(hWnd, 130 + i * 25, 310 + j * 25, inst, myField.getButtonCode());
-					mainProc = (WNDPROC)SetWindowLong(myField.getField()[i][j].getButton(), GWL_WNDPROC, (LONG)cellProc);
-					SendMessage(myField.getField()[i][j].getButton(), BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)but);
-					UpdateWindow(myField.getField()[i][j].getButton());
+					myField.getField()[i][j].initializeCell(320 + i * ButSize, 130 + j * ButSize,
+						320 + i * ButSize + ButSize, 130 + j * ButSize + ButSize);
 				}
 			}
+			myField.startGame();
+			InvalidateRect(hWnd, 0, FALSE);
+			
 		}
 
 		if (LOWORD(wParam) == 3) {
@@ -278,25 +298,185 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM
 			ShowWindow(middleLevel, SW_HIDE);
 			ShowWindow(hardLevel, SW_HIDE);
 
-			myField = Field(20, 20);
+			SetTimer(hWnd, 200, 1000, NULL);
+
+			isOver = false;											// если выбран сложный уровень сложности
+
+			myField = Field(20, 20);								// создать поле размером 20х20
 
 			for (int i = 0; i < myField.getSizeX(); i++) {
 				for (int j = 0; j < myField.getSizeY(); j++) {
-					myField.getField()[i][j].initializeButton(hWnd, 100 + i * 25, 230 + j * 25, inst, myField.getButtonCode());
-					mainProc = (WNDPROC)SetWindowLong(myField.getField()[i][j].getButton(), GWL_WNDPROC, (LONG)cellProc);
-					SendMessage(myField.getField()[i][j].getButton(), BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)but);
-					UpdateWindow(myField.getField()[i][j].getButton());
+					myField.getField()[i][j].initializeCell(250 + i * ButSize, 80 + j * ButSize,
+						250 + i * ButSize + ButSize, 80 + j * ButSize + ButSize);
+				}
+			}
+			myField.startGame();
+			InvalidateRect(hWnd, 0, FALSE);
+		}
+		break;
+
+
+	case WM_TIMER:
+		myTime.seconds++;
+		if (myTime.seconds == 59) {
+			myTime.minutes++;
+			myTime.seconds = 0;
+		}
+
+		if (myTime.minutes == 59) {
+			myTime.hours++;
+			myTime.minutes = 0;
+		}
+
+		InvalidateRect(hWnd, 0, FALSE);
+		break;
+	case WM_LBUTTONDOWN:
+		x = LOWORD(lParam);
+		y = HIWORD(lParam);
+		for (int i = 0; i < myField.getSizeX(); i++) {
+			for (int j = 0; j < myField.getSizeY(); j++) {
+				if (x > myField.getField()[i][j].getCoordX() && x < myField.getField()[i][j].getCoordRight() &&
+					y > myField.getField()[i][j].getCoordY() && y < myField.getField()[i][j].getCoordBottom()) {
+						if(!isOver)			// если игра не закончена, открыть ячейку
+							myField.openCell(i, j);
+						InvalidateRect(hWnd, 0, FALSE);
+						break;
+					}
+				}
+			}
+		break;
+
+	case WM_RBUTTONDOWN:
+		x = LOWORD(lParam);
+		y = HIWORD(lParam);
+		for (int i = 0; i < myField.getSizeX(); i++) {
+			for (int j = 0; j < myField.getSizeY(); j++) {
+				if (x > myField.getField()[i][j].getCoordX() && x < myField.getField()[i][j].getCoordRight() &&
+					y > myField.getField()[i][j].getCoordY() && y < myField.getField()[i][j].getCoordBottom() && (!isOver || !win)) {
+					if (!myField.getField()[i][j].isMarked()) {		// если ячейка не помечена, пометить
+						myField.getField()[i][j].setMarked();
+					}
+					else {
+						myField.getField()[i][j].setUnmarked();		// если помечена - убрать метку
+					}
+					if (myField.checkGameOver()) {
+						win = true;
+					}
+					InvalidateRect(hWnd, 0, FALSE);
+					break;
 				}
 			}
 		}
-		myField.initImages(hInst);
 		break;
+
 	case WM_PAINT:
-		if (isOver) {
-			hdc = BeginPaint(hWnd, &ps);
-			TextOut(hdc, 450, 50, textBuffer, lstrlen(textBuffer));
-			EndPaint(hWnd, &ps);
+		
+		hdc = BeginPaint(hWnd, &ps);
+
+		RECT rect;
+		GetClientRect(hWnd, &rect);
+		hMemDC = CreateCompatibleDC(hdc);	// совместимый контекст устройства
+		hMemBM = CreateCompatibleBitmap(hdc, GetSystemMetrics(SM_CXFULLSCREEN), GetSystemMetrics(SM_CYFULLSCREEN));
+
+		SelectObject(hMemDC, hMemBM);
+
+		FillRect(hMemDC, &rect, (HBRUSH)(COLOR_WINDOW + 1));	// очистить экран
+		if (choseLevel) {										// если открыта страница выбора уровня, вывести текст
+			TextOut(hMemDC, 400, 200, choose, ARRAYSIZE(choose));
+			choseLevel = false;
 		}
+		
+		if (win) { 
+			char buff[50];
+			char c, sep1, sep2;
+			Time dataTime;
+			std::string res, nick, date;
+			TCHAR output[30];
+			std::vector<std::pair<std::string, std::string>> vect = std::vector<std::pair<std::string, std::string>>();
+			std::ifstream fin;
+			if (myField.getSizeX() == 10) {
+				fin.open("table1.txt", std::ios::in);
+			}
+
+			else if (myField.getSizeX() == 15) {
+				fin.open("table2.txt", std::ios::in);
+			}
+
+			else if (myField.getSizeX() == 20) {
+				fin.open("table3.txt", std::ios::in);
+			}
+
+			while (!fin.eof()) {
+				fin.getline(buff, 50);
+				int i = 0;
+				c = buff[i];
+				while (c != '\0') {
+					res.append(1, c);
+					c = buff[++i];
+				}
+
+				for (int i = 0; i < res.size(); i++) {
+					if (res[i] == ' ') {
+						nick = res.substr(0, i - 1);
+						date = res.substr(i + 1, res.size());
+						break;
+					}
+				}
+
+				vect.push_back(std::pair<std::string, std::string>(nick, date));
+			}
+
+			for (int i = 0; i < vect.size(); i++) {
+				TextOut(hMemDC, 700, 40 + i * 10, vect[i].first.c_str(), vect[i].first.size());
+				TextOut(hMemDC, 750, 40 + i * 10, vect[i].second.c_str(), vect[i].second.size());
+			}
+			fin.close();
+			
+			TextOut(hMemDC, 500, 150, textBuffer, ARRAYSIZE(textBuffer));
+			KillTimer(hWnd, 200);
+			win = false;
+			myField.stopGame();
+		}
+
+		if (myField.isGameStarted()) {
+			TextOut(hMemDC, myField.getField()[0][0].getCoordX(), myField.getField()[0][0].getCoordY() - 15, timeBuffer, wsprintf(timeBuffer, "%d-%d-%d", myTime.hours, myTime.minutes, myTime.seconds));
+			for (int i = 0; i < myField.getSizeX(); i++) {
+				for (int j = 0; j < myField.getSizeY(); j++) {
+					if (myField.getExplodeInfo() && myField.getField()[i][j].isBomb() && !myField.getField()[i][j].IsOpened()) {
+						DrawBitmap(hMemDC, (HBITMAP)images[9], myField.getField()[i][j].getCoordX(), myField.getField()[i][j].getCoordY());
+						TextOut(hMemDC, 450, 60, looseText, ARRAYSIZE(looseText));
+						isOver = true;
+						KillTimer(hWnd, 200);
+						continue;
+					}
+
+					if (myField.getField()[i][j].IsOpened()) {
+						if (myField.getField()[i][j].isBomb()) {
+							DrawBitmap(hMemDC, (HBITMAP)images[10], myField.getField()[i][j].getCoordX(), myField.getField()[i][j].getCoordY());
+						}
+						else {
+							outPut = myField.checkSiblings(i, j);
+							if (!outPut) {
+								DrawBitmap(hMemDC, (HBITMAP)images[0], myField.getField()[i][j].getCoordX(), myField.getField()[i][j].getCoordY());
+							}
+							else {
+								DrawBitmap(hMemDC, (HBITMAP)images[outPut], myField.getField()[i][j].getCoordX(), myField.getField()[i][j].getCoordY());
+							}
+						}
+					}
+					else {
+						if (myField.getField()[i][j].isMarked()) {
+							DrawBitmap(hMemDC, (HBITMAP)flag, myField.getField()[i][j].getCoordX(), myField.getField()[i][j].getCoordY());
+						} else {
+							DrawBitmap(hMemDC, (HBITMAP)but, myField.getField()[i][j].getCoordX(), myField.getField()[i][j].getCoordY());
+						}
+					}
+				}
+			}
+		}
+
+		BitBlt(hdc, 0, 0, rect.right - rect.left, rect.bottom - rect.top, hMemDC, 0, 0, SRCCOPY);	
+		EndPaint(hWnd, &ps);
 		break;
 	case WM_DESTROY:
 		PostQuitMessage(0);
